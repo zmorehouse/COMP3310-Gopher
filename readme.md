@@ -36,4 +36,15 @@ Handling Empty Folders
 
 Handling Other Ports
 
+Todo :
+Add scanning files size
+    The contents of the smallest text file.
+    The size of the largest text file.
+    The size of the smallest and the largest binary files.
+Add checking server uptime
+Fix long names so that they are in the same file
+Asdd number of unique invalid references
 
+Identify any such situations you find on the gopher server in your
+README or code comments, and how you dealt with each of them – being reasonably liberal in what you
+accept and can interpret, or flagging what you cannot accept.

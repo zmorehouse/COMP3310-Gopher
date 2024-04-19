@@ -15,10 +15,27 @@ def get_response(host, port, selector, decode_response=True):
             final_url = f"{host}:{port}/{selector}"
             print("Timestamp:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
             print("Client-request:", final_url)
-            s.settimeout(timeout) 
+            s.settimeout(timeout)  # Set the timeout for the socket
+            
             s.connect((host, port))
             s.sendall(selector.encode('utf-8') + b"\r\n")
-            response = s.recv(buffer_size)
+            
+            response = b""  # Initialize an empty byte string to accumulate the response
+            total_received = 0  # Initialize a counter for total received bytes
+            
+            while True:
+                chunk = s.recv(min(buffer_size, max_bytes - total_received) if max_bytes else buffer_size)  
+                # Receive data in chunks, limiting the chunk size if max_bytes is specified
+                
+                if not chunk:  # If no more data is received, break the loop
+                    break
+                
+                response += chunk  # Append the received chunk to the response
+                total_received += len(chunk)  # Update the total received bytes
+                
+                if max_bytes and total_received >= max_bytes:  # If reached the maximum bytes, break the loop
+                    break
+
             if decode_response:
                 return response.decode('utf-8')
             else:
@@ -29,13 +46,10 @@ def get_response(host, port, selector, decode_response=True):
         finally:
             s.close()
 
+
 def directory_crawler(host, port, selector):
     global text_file_count, subdirectory_count, visited_directories, text_files_list, binary_count, binary_files_list  # Declare the variables as global
     response = get_response(host, port, selector, True)
-
-    if response is None:  # If response is None, it means the file timed out
-        print('This file timed out, we will not visit it')
-        return
 
     lines = response.split('\n')
 
@@ -50,7 +64,6 @@ def directory_crawler(host, port, selector):
                 text_files_list.append(file_name)
 
         elif line.startswith('1'): # Subdirectory
-            subdirectory_count += 1
             parts = packet_splitter(line)
             if parts[3] != 'comp3310.ddns.net' or parts[4].strip() != '70': # Check if its on the server
                 print('This is an external link, we will not visit it')
@@ -58,6 +71,7 @@ def directory_crawler(host, port, selector):
                 directory_url = construct_file_url(parts)
                 if directory_url not in visited_directories:  # If a directory has not been visited, visit it
                     visited_directories.append(directory_url)  # Mark the directory as visited
+                    subdirectory_count += 1
                     try:
                         directory_crawler(parts[3], int(parts[4].strip()), parts[2])
                     except Exception as e:
@@ -108,10 +122,14 @@ def downloader(line, is_binary=False):
 
     else:
         file_content = get_response(host, int(port), selector, True)
+        
+        if file_content is None:  # If response is None, it means the file timed out
+            print('This file timed out, there was an error downloading it')
+            file_content = 'This file timed out, there was an error downloading it' 
+        
         with open(output_path, 'w', encoding='utf-8') as file:
             file.write(file_content)
         return output_filename  
-
 
 
 def construct_file_url(parts):
@@ -125,6 +143,7 @@ def generate_short_filename(long_filename):
     # Generate a unique, shorter filename
     short_filename = "largename" + str(hash(long_filename)) + ".txt"
     return short_filename
+
 
 if __name__ == "__main__": # This function runs when the script is run within the terminal. 
 
@@ -145,6 +164,7 @@ if __name__ == "__main__": # This function runs when the script is run within th
     host = "comp3310.ddns.net"
     port = 70
     buffer_size = 4096
+    max_bytes = 150000
     timeout = 5
 
     directory_crawler(host, port, "")  # Start the directory crawler from the root directory
@@ -163,4 +183,4 @@ if __name__ == "__main__": # This function runs when the script is run within th
     for file_name in binary_files_list:
         print(file_name)
     print("=====================================")
-
+ 
