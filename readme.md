@@ -2,13 +2,18 @@ u7637337 - Zac Morehouse
 
 Running the program
 The program is a simple script that only requires python to run. To run, please follow these steps :
-- Extract the folder to a location of your choice. (Which, if you're reading this, has already been done!)
-- Open terminal/powershell with administrative priviledges 
-- CD to the directory of the folder
-- Run the script with python connect.py 
-- Wait for the script to run and return the results
-- The script will automatically create a folder within it's parent directory named downloads, and two subfolders titled binary and text. These two folders will host any downloaded files. 
-- To modify the server the script connects to, you simply need to edit the script and change the variables under the __main__ function. This can take up to four variables - Host, Port, Selector and Type and will automatically construct the respective URL based on these values. 
+1) Extract the folder to a location of your choice. (Which, if you're reading this, has already been done!)
+2) Open terminal/powershell with administrative priviledges 
+3) CD to the directory of the folder
+4) Run the script with python connect.py 
+5) Wait for the script to run and return the results
+6) The script will automatically create a folder within it's parent directory named downloads, and two subfolders titled binary and text. These two folders will host any downloaded files. 
+
+To modify the server the script connects to, you simply need to edit the script and change the variables under the __main__ function. 
+Host - Changes the host the crawler connects to
+Port - Changes the port the crawler connects to
+Buffer Size - Changes the size of the response buffer (in bytes)
+Timeout - Changes the duration of the program timeout (In seconds)
 
 Wireshark Filtering
 To initially recieve and filter traffic via Wireshark, I have done the following :
@@ -17,24 +22,23 @@ From here, we can simply filter both inbound/outbound wireshark traffic to this 
 A screenshot of the programs initial response (before any logic has been applied) has been included in this folder. It is named  'Initial Response.png' 
 
 Project Overview
+The program is a script that connects to and crawls a gopher server. It will download any txt and binary files within the server, and crawl through any directories. It will ignore external servers however will log whether they are up and down. At the end, it will return  :
 
-Tracking Amounts and Totals
-
-Downloading Files (Text)
-
-Downloading Files (Binary)
+Edge Cases
 
 Handling Mazes
+As to not get stuck in a loop, my script will monitor 'visited directories'. By keeping track of these in a list, we can check if a directory has already been visited. If it has, we can ignore its.
 
 Handling Long File Names
+If a file name is too long (above 256 bytes) the programw ill shorten it with a hash.
 
-Handling Deeply Nested Directories
+Handling Large Files
+If a file is too large, it will recursively request content from the file until it recieves all the content. 
 
-Handling Empty Files
+Handling infinite files / unresponsive files.
+If a file infinitely sends messages, or is unresponsive in it's sending, my program will timeout and throw an error message after the specified duration - moving onto the next file.
 
-Handling Empty Folders
 
-Handling Other Ports
 
 Todo :
 Add scanning files size
