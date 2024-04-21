@@ -1,54 +1,58 @@
-u7637337 - Zac Morehouse   
+# Connecting to Gopher Server
 
-Running the program
-The program is a simple script that only requires python to run. To run, please follow these steps :
-1) Extract the folder to a location of your choice. (Which, if you're reading this, has already been done!)
-2) Open terminal/powershell with administrative priviledges 
-3) CD to the directory of the folder
-4) Run the script with python connect.py 
-5) Wait for the script to run and return the results
-6) The script will automatically create a folder within it's parent directory named downloads, and two subfolders titled binary and text. These two folders will host any downloaded files. 
+This Python script is designed to connect to and crawl a Gopher server, downloading any text and binary files within it while navigating through directories. It ignores external servers but logs their status.
 
-To modify the server the script connects to, you simply need to edit the script and change the variables under the __main__ function. 
-Host - Changes the host the crawler connects to
-Port - Changes the port the crawler connects to
-Buffer Size - Changes the size of the response buffer (in bytes)
-Timeout - Changes the duration of the program timeout (In seconds)
+## Running the Program
 
-Wireshark Filtering
-To initially recieve and filter traffic via Wireshark, I have done the following :
-First, I located the IP address of the host using the nslookup command. This returned the following address : 170.64.166.99 
-From here, we can simply filter both inbound/outbound wireshark traffic to this host using the following command : (ip.addr == 170.64.166.99 && tcp.port == 70) || (ip.dst == 170.64.166.99 && tcp.port == 70)
-A screenshot of the programs initial response (before any logic has been applied) has been included in this folder. It is named  'Initial Response.png' 
+1. Extract the folder to a location of your choice.
+2. Open terminal/powershell with administrative privileges.
+3. CD to the directory of the folder.
+4. Run the script with `python connect.py`.
+5. Wait for the script to run and return the results.
+6. The script will automatically create a folder within its parent directory named `downloads`, with subfolders `binary` and `text` for downloaded files.
 
-Project Overview
-The program is a script that connects to and crawls a gopher server. It will download any txt and binary files within the server, and crawl through any directories. It will ignore external servers however will log whether they are up and down. At the end, it will return  :
+## Modifying The Server & Variables 
 
-Edge Cases
+To modify the server the script connects to (alongside additional elements, such as the buffer size and time out) edit the variables under the `__main__` function:
+- `host`: Changes the host the crawler connects to.
+- `port`: Changes the port the crawler connects to.
+- `buffer_size`: Changes the size of the response buffer (in bytes).
+- `timeout`: Changes the duration of the program timeout (in seconds).
 
-Handling Mazes
-As to not get stuck in a loop, my script will monitor 'visited directories'. By keeping track of these in a list, we can check if a directory has already been visited. If it has, we can ignore its.
+## Wireshark Filtering
+To filter traffic via Wireshark:
+- Use the IP address of the host obtained from `nslookup`.
+`(ip.addr == 170.64.166.99 && tcp.port == 70) || (ip.dst == 170.64.166.99 && tcp.port == 70)`
 
-Handling Long File Names
-If a file name is too long (above 256 bytes) the programw ill shorten it with a hash.
+## Crawling Directories and Counting Items
 
-Handling Large Files
-If a file is too large, it will recursively request content from the file until it recieves all the content. 
+During the crawling process, the script uses counters `text_file_count`, `subdirectory_count`, and `binary_count` to keep track of the number of various items seen. These are incremented within the `directory_crawler` function as it navigates through directories and encounters files.
 
-Handling infinite files / unresponsive files.
-If a file infinitely sends messages, or is unresponsive in it's sending, my program will timeout and throw an error message after the specified duration - moving onto the next file.
+## Handling Errors and Invalid References
 
+In addition to counting successful retrievals of files and directories, the script also tracks and reports any encountered errors. This includes invalid references, timeouts, and any other issues that may arise during the crawling process. 
 
+## Returning File Sizes
 
-Todo :
-Add scanning files size
-    The contents of the smallest text file.
-    The size of the largest text file.
-    The size of the smallest and the largest binary files.
-Add checking server uptime
-Fix long names so that they are in the same file
-Asdd number of unique invalid references
+Upon completion of the crawling process, the script provides information regarding the sizes of files encountered during the traversal. This includes the size of the largest and smallest text files, as well as the sizes of the largest and smallest binary files. 
 
-Identify any such situations you find on the gopher server in your
-README or code comments, and how you dealt with each of them – being reasonably liberal in what you
-accept and can interpret, or flagging what you cannot accept.
+## Handling Edge Cases
+
+The script is equipped to handle various edge cases that may arise during the crawling process:
+- **Handling Mazes**: To prevent the script from getting stuck in loops, it tracks visited directories and avoids revisiting them.
+- **Handling Long File Names**: Files with excessively long names are shortened using a hashing mechanism to comply with system limitations.
+- **Handling Large Files**: The script employs recursive retrieval mechanisms for large files.
+- **Handling Infinite/Unresponsive Files**: Timeouts are enforced for unresponsive files.
+- **Handling Incorrectly Constructed Directories**: The script gracefully manages directories with non-standard or incorrectly formatted structures.
+- **Handling Other Gopher Types (Invalid References)**: The script intelligently processes and manages various Gopher types, including handling invalid references appropriately.
+
+## Additional Functions
+
+- `get_response`: Sends a request to the server and receives a response.
+- `directory_crawler`: Navigates through directories and counts items.
+- `downloader`: Downloads files, handles binary and text files differently.
+- `packet_splitter`: Splits the packet into parts for processing.
+- `construct_file_url`: Constructs the file URL from its parts.
+- `generate_short_filename`: Generates a shorter filename for long filenames.
+- `size_checker`: Checks the size of files in a directory.
+- `check_server_status`: Checks the status of a server.
