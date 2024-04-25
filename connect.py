@@ -40,6 +40,7 @@ def get_response(host, port, selector, decode_response=True):
             s.connect((host, port))
             s.sendall(selector.encode('utf-8') + b"\r\n")
 
+
             response = b""  
             total_received = 0  
             
@@ -58,16 +59,19 @@ def get_response(host, port, selector, decode_response=True):
             
             # If the response is to be decoded, decode it as utf-8 before returning. Otherwise, return the raw response.
             if decode_response:
+
                 return response.decode('utf-8')
             else:
+
                 return response
-            
+
             # If the socket operation times out, print a message and return None.
         except socket.timeout:
-            print("Socket operation timed out.")
             return None
         finally:
             s.close()
+
+
 
 
 # Our primary crawler function. This crawls through a gopher server's directories and downloads text and binary files.
@@ -92,6 +96,7 @@ def directory_crawler(host, port, selector):
             
             if len(parts) != 5: # If the packet is malformed, add it to the errored directories list and continue to the next line. 
                 errored_directories[str(parts[1:])] = 'This directory item is malformed and cannot be crawled'
+                invalid_references += 1
                 continue
 
             if parts[3] != host or parts[4].strip() != str(port):  # If the host or port are not the same as the server, add it to the external directories list.
@@ -111,6 +116,7 @@ def directory_crawler(host, port, selector):
                         print(f"An error occurred while crawling directory {directory_url}: {e}")
         
         elif line.startswith('3'):  # Error Type - We should add it to the invalid reference count.
+            errored_directories[f"{host}:{port}/{selector}"] = 'An error type 3 was raised here'
             invalid_references += 1
             pass
 
@@ -196,14 +202,16 @@ def downloader(line, is_binary=False):
             invalid_references += 1
         elif len(file_content) == max_bytes: # If the response equals the maximum download size, we know it must be too big.
             errored_files[output_filename] = 'Exceeded maximum file size.'
-            file_content = 'This file exceeds the maximum download size allowed. To download, increase the max_bytes variable'
+            invalid_references += 1
+        elif not file_content.endswith('.\r\n'):  # Check if the file content doesn't end with ".\n"
+            errored_files[output_filename] = 'Is not a correctly formatted Gopher text response (Doesnt end in a period on a new line)'
             invalid_references += 1
         else:
-            file_content = file_content[:-4]  # Remove the last two characters (period and newline)
+            file_content = file_content[:-5]  # Remove the last two characters (period and newline)
             if len(file_content) == 0:        # If the length of the response is 0, it must be empty
                 errored_files[output_filename] = 'The file is empty.'
-                invalid_references += 1\
-                
+                invalid_references += 1
+
             else: # If the response is valid, write it to a file and increment the binary count.
                 text_files_list.append(file_url)
                 text_file_count += 1

@@ -77,7 +77,7 @@ Depending on the response the script also performs other actions.
 - If the length of the response is equal to max_bytes, we can assume the file timed out because it was too large.
 - If the length of the response (minus the period and new line characters) is zero, we know the file is empty. This is to handle **empty.txt**
 
-If any of these cases occur, we create the file with the relevant error message, log it to the ``errored_files`` dictionary and increment our error counter (``invalid_references``).
+If any of these cases occur, we create the file with what data we **do** have (being liberal in what we accept), log it to the ``errored_files`` dictionary and increment our error counter (``invalid_references``).
 
 ## Downloading Binary Files 
 Binary files work exactly the same, however are written to their respective files with ``file.write(wb)``. Here, ``binary_count`` and ``binary_files_list`` are used instead of the text file ones.
@@ -101,8 +101,6 @@ To return the results of the script, the tracked variables (such as the list of 
 # Program Final Output
 
 TODO 
-Fix malformed file and error it 
 Check logic for buffer size
-Redo wireshark screenshot
-More detail in error messages
+Comment new stuff and split out errored directories and ttypes and add to readme
 Paste in program final output
