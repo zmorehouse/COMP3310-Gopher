@@ -104,8 +104,5 @@ TODO
 Fix malformed file and error it 
 Check logic for buffer size
 Redo wireshark screenshot
-Intialize visited_directories with original directory
 More detail in error messages
-Comments on script
-Rename to connect.py 
-Past in program final output
+Paste in program final output
