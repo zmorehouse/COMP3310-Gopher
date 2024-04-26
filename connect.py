@@ -2,7 +2,7 @@
  Zac Morehouse | u7637337 
  This script is a Gopher client that connects to a Gopher server and downloads text and binary files. 
  The script then returns a variety of information about the server itself, including information about the directories, files and various errors.
-For more information, please see the readme.md file included in this folder. '''
+ For more information, please see the readme.md file included in this folder. '''
 
 # Import Necessary Libraries
 import os
@@ -23,7 +23,7 @@ server_status_info = {}
 errored_files = {}
 errored_directories = {}
 
-# Sends a request to a specified gopher server and return a response.
+# Sends a request to a specified gopher server and returns a response.
 def get_response(host, port, selector, decode_response=True):
 
     # Establish a socket connection
@@ -43,10 +43,11 @@ def get_response(host, port, selector, decode_response=True):
 
             # Buffer chunks of data to receive from the server
             # Files larger than the specified buffer size will be downloaded in chunks, up until max_bytes is reached (maximum download size)
+
             response = b""  # Initialize an empty response and a counter
             total_received = 0   
             
-            # While there is data to receive, receive it in chunks, ensuring it does not exceed the remaining bytes allowed to be received.
+            # While there is data to receive, receive it in chunks, ensuring it does not exceed the max_bytes allowed to be received.
             while True: 
                 chunk = s.recv(min(buffer_size, max_bytes - total_received)) 
                 response += chunk  # Append the received chunk to the response and update the total
@@ -56,13 +57,13 @@ def get_response(host, port, selector, decode_response=True):
                 if max_bytes and total_received >= max_bytes:  # If reached the maximum bytes, break the loop
                     break
 
-            # If the response is to be decoded, decode it as utf-8 before returning. Otherwise, return the raw data.
+            # If the call has requested a decoded response - decode the response as utf-8 before returning. Otherwise, return the raw data.
             if decode_response:
                 return response.decode('utf-8')
             else:
                 return response
 
-            # If the socket operation times out, print a message and return None.
+            # If the socket operation times out, return an error with relevant information. 
         except socket.timeout:
             return "Timeout with Data" if response else "Timeout without Data"
         finally:
@@ -97,6 +98,7 @@ def directory_crawler(host, port, selector):
                     external_directories.append(external_url) # Mark the directory as visited.
                     external_directories_count += 1
                     server_status_info[external_url] = check_server_status(parts[3], int(parts[4].strip())) # If it has not already been visited. Check the server status and add it to the server status info list.
+            
             else:  # If the directory is internal, check if it has already been visited. If not, visit it.
                 directory_url = construct_file_url(parts)
                 if directory_url not in visited_directories: 
@@ -126,12 +128,12 @@ def directory_crawler(host, port, selector):
         elif line.startswith('9'): # Binary File - We should download it.
             downloader(line, True)
 
-# Basic function to split a line into it's parts. 
+# Basic function to split a packet (line of a response) into it's individual parts. 
 def packet_splitter(line):
     parts = [line[0]] + line[1:].split('\t')
     return parts
 
-# A function to download our text and binary files. 
+# A function to download text and binary files. 
 def downloader(line, is_binary=False):
     global errored_files, binary_count, text_file_count, invalid_references
 
@@ -142,7 +144,7 @@ def downloader(line, is_binary=False):
     selector = parts[2]
     file_url = construct_file_url(parts) 
     
-    # Generate a unique, shorter file name if needed
+    # Generate a shorter file name if needed
     if len(parts[2]) > 50:
         output_filename = generate_short_filename(parts[2])
     else:
@@ -280,7 +282,7 @@ if __name__ == "__main__": # This function runs when the script is run within th
     host = "comp3310.ddns.net"
     port = 70
     buffer_size = 4096 
-    max_bytes = 100000 
+    max_bytes = 100000 # (100kb)
     timeout = 2
 
     visited_directories.append(f"{host}:{port}") # Add the root directory to the visited directories list and increment our counter
