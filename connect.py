@@ -1,6 +1,8 @@
 ''' COMP3310 - A2 - Gopher Indexing Assignment
  Zac Morehouse | u7637337 
- This script is a Gopher client that connects to a Gopher server and downloads text and binary files. For more information, please see the readme.md file included in this folder. '''
+ This script is a Gopher client that connects to a Gopher server and downloads text and binary files. 
+ The script then returns a variety of information about the server itself, including information about the directories, files and various errors.
+For more information, please see the readme.md file included in this folder. '''
 
 # Import Necessary Libraries
 import os
@@ -21,14 +23,13 @@ server_status_info = {}
 errored_files = {}
 errored_directories = {}
 
-
 # Sends a request to a specified gopher server and return a response.
 def get_response(host, port, selector, decode_response=True):
 
     # Establish a socket connection
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: 
         try:
-            final_url = f"{host}:{port}/{selector}" 
+            final_url = f"{host}:{port}{selector}" 
 
             # Print the current time and file being requested to STDOUT
             print("Timestamp:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) #
@@ -38,41 +39,34 @@ def get_response(host, port, selector, decode_response=True):
             s.settimeout(timeout)  
             
             s.connect((host, port))
-            s.sendall(selector.encode('utf-8') + b"\r\n")
+            s.sendall(selector.encode('utf-8') + b"\r\n") 
 
-
-            response = b""  
-            total_received = 0  
+            # Buffer chunks of data to receive from the server
+            # Files larger than the specified buffer size will be downloaded in chunks, up until max_bytes is reached (maximum download size)
+            response = b""  # Initialize an empty response and a counter
+            total_received = 0   
             
-            while True:
-                chunk = s.recv(min(buffer_size, max_bytes - total_received) if max_bytes else buffer_size)  
-                # Receive data in chunks, limiting the chunk size if max_bytes is specified
-                
+            # While there is data to receive, receive it in chunks, ensuring it does not exceed the remaining bytes allowed to be received.
+            while True: 
+                chunk = s.recv(min(buffer_size, max_bytes - total_received)) 
+                response += chunk  # Append the received chunk to the response and update the total
+                total_received += len(chunk)  
                 if not chunk:  # If no more data is received, break the loop
                     break
-                
-                response += chunk  # Append the received chunk to the response
-                total_received += len(chunk)  # Update the total received bytes
-                
                 if max_bytes and total_received >= max_bytes:  # If reached the maximum bytes, break the loop
                     break
-            
-            # If the response is to be decoded, decode it as utf-8 before returning. Otherwise, return the raw response.
-            if decode_response:
 
+            # If the response is to be decoded, decode it as utf-8 before returning. Otherwise, return the raw data.
+            if decode_response:
                 return response.decode('utf-8')
             else:
-
                 return response
 
             # If the socket operation times out, print a message and return None.
         except socket.timeout:
-            return None
+            return "Timeout with Data" if response else "Timeout without Data"
         finally:
             s.close()
-
-
-
 
 # Our primary crawler function. This crawls through a gopher server's directories and downloads text and binary files.
 def directory_crawler(host, port, selector):
@@ -80,10 +74,8 @@ def directory_crawler(host, port, selector):
     
     # Get a response from the server
     response = get_response(host, port, selector, True)
-
     # Split the response into lines and iterate through them
     lines = response.split('\n')
-
     for line in lines:
         if line.startswith('i'):  # Informational Line - We can ignore it.
             pass
@@ -95,7 +87,7 @@ def directory_crawler(host, port, selector):
             parts = packet_splitter(line) # Split the response to discover the parts of the packet (Host, Port, etc.)
             
             if len(parts) != 5: # If the packet is malformed, add it to the errored directories list and continue to the next line. 
-                errored_directories[str(parts[1:])] = 'This directory item is malformed and cannot be crawled'
+                errored_directories[str(parts)] = 'The structure of this directory item is malformed.'
                 invalid_references += 1
                 continue
 
@@ -116,7 +108,8 @@ def directory_crawler(host, port, selector):
                         print(f"An error occurred while crawling directory {directory_url}: {e}")
         
         elif line.startswith('3'):  # Error Type - We should add it to the invalid reference count.
-            errored_directories[f"{host}:{port}/{selector}"] = 'An error type 3 was raised here'
+            errored_directories[f"{host}:{port}{selector}"] = 'Item type 3, a gopher error, was received at this address.'
+            subdirectory_count -= 1 # Because we visited the directory, and it errored, we can decrement it from the count of subdirectories and increment the invalid references count. 
             invalid_references += 1
             pass
 
@@ -125,7 +118,7 @@ def directory_crawler(host, port, selector):
                 if line.startswith(prefix):
                     print("Line starts with type:", prefix)
                     break  
-            print("This script does not support this type and will add it to the invalid reference count.")
+            print("This script does not support this item type and will add it to the invalid reference count.")
             invalid_references += 1
             pass
 
@@ -148,7 +141,6 @@ def downloader(line, is_binary=False):
     port = parts[4].strip()
     selector = parts[2]
     file_url = construct_file_url(parts) 
-    print(file_url + " is being downloaded")
     
     # Generate a unique, shorter file name if needed
     if len(parts[2]) > 50:
@@ -172,13 +164,15 @@ def downloader(line, is_binary=False):
         file_content = get_response(host, int(port), selector, False)
 
         # Error handling for binary files. 
-        if file_content is None: # If response is None, it means the file timed out
-            errored_files[output_filename] = 'The file timed out'
-            file_content = 'This file timed out, there was an error downloading it'
+        if file_content == 'Timeout with Data': # If the response timed out, but had data in the response
+            errored_files[output_filename] = 'The contents of the file was unable to be fully downloaded within the timeout period.'
+            invalid_references += 1
+        elif file_content == 'Timeout without Data': # If the response timed out, but did not have data in the response
+            errored_files[output_filename] = 'No response was recieved from the server within the timeout period.'
+            file_content = 'This file did not return any data within the timeout period.'
             invalid_references += 1
         elif len(file_content) == max_bytes: # If the response equals the maximum download size, we know it must be too big.
-            errored_files[output_filename] = 'Exceeded maximum file size.'
-            file_content = 'This file exceeds the maximum download size allowed. To download, increase the max_bytes variable'
+            errored_files[output_filename] = 'The response exceeded the maximum file size and was timed out.'
             invalid_references += 1
         else:
             if len(file_content) == 0: # If the length of the response is 0, it must be empty
@@ -194,29 +188,31 @@ def downloader(line, is_binary=False):
 
     else: # If the file is text, get the response and download it as a text file.
         file_content = get_response(host, int(port), selector, True)
-
         # Error handling for text files.
-        if file_content is None:  # If response is None, it means the file timed out
-            errored_files[output_filename] = 'The file timed out.'
-            file_content = 'This file timed out, there was an error downloading it'
+        if file_content == 'Timeout with Data': # If the response timed out, but had data in the response
+            errored_files[output_filename] = 'The contents of the file was unable to be fully downloaded within the timeout period.'
+            invalid_references += 1
+        elif file_content == 'Timeout without Data': # If the response timed out, but did not have data in the response
+            errored_files[output_filename] = 'No response was recieved from the server within the timeout period.'
+            file_content = 'This file did not return any data within the timeout period.'
             invalid_references += 1
         elif len(file_content) == max_bytes: # If the response equals the maximum download size, we know it must be too big.
-            errored_files[output_filename] = 'Exceeded maximum file size.'
+            errored_files[output_filename] = 'The response exceeded the maximum file size and was timed out.'
             invalid_references += 1
-        elif not file_content.endswith('.\r\n'):  # Check if the file content doesn't end with ".\n"
-            errored_files[output_filename] = 'Is not a correctly formatted Gopher text response (Doesnt end in a period on a new line)'
+        elif not file_content.endswith('.\r\n'):  # Check if the file content doesn't end with ".\r\n"
+            errored_files[output_filename] = 'The response is not a correctly formatted gopher text response.'
             invalid_references += 1
         else:
-            file_content = file_content[:-5]  # Remove the last two characters (period and newline)
+            file_content = file_content[:-5]  # Remove the last characters (period and newline)
             if len(file_content) == 0:        # If the length of the response is 0, it must be empty
                 errored_files[output_filename] = 'The file is empty.'
                 invalid_references += 1
 
-            else: # If the response is valid, write it to a file and increment the binary count.
+            else: # If the response is valid, write it to a file and increment the text count.
                 text_files_list.append(file_url)
                 text_file_count += 1
             with open(output_path, 'w', encoding='utf-8') as file:
-                file.write(file_content.strip('\n'))  # Strip trailing newline characters before writing
+                file.write(file_content) 
             return output_filename  
     
 # Function to construct a file URL from its parts
@@ -225,14 +221,14 @@ def construct_file_url(parts):
     host = parts[3]
     port = parts[4].strip()
     selector = parts[2]
-    return f"{host}:{port}/{selector}"
+    return f"{host}:{port}{selector}"
 
 # Function to generate a short filename for long filenames
-def generate_short_filename(long_filename, counter=[0]):
-    counter[0] += 1 # Increment a counter for each call to ensure uniqueness
-    short_part = long_filename[:10] # Extract the first 10 characters of the long filename
-    short_part = short_part.replace("/", "_").replace("\\", "_")
-    short_filename = "largename_" + short_part + "_" + str(counter[0]) + ".txt" # Append the counter value to ensure uniqueness
+def generate_short_filename(long_filename):
+    long_filename = long_filename.split('/')[-1] # Extract just the filename
+    short_part = long_filename[:10] # Extract the first 10 characters of the long filename and rename the file
+    short_part = short_part.replace("/", "_")
+    short_filename = "largename_" + short_part + ".txt" 
     return short_filename
 
 # Function to check the status of a server
@@ -283,18 +279,19 @@ if __name__ == "__main__": # This function runs when the script is run within th
     # Set the initial variables for the script
     host = "comp3310.ddns.net"
     port = 70
-    buffer_size = 4096
-    max_bytes = 100000 # Maximum bytes to download (100kB)
+    buffer_size = 4096 
+    max_bytes = 100000 
     timeout = 2
 
-    visited_directories.append(f"{host}:{port}/") # Add the root directory to the visited directories list
+    visited_directories.append(f"{host}:{port}") # Add the root directory to the visited directories list and increment our counter
+    subdirectory_count +=1
     directory_crawler(host, port, "")  # Start the directory crawler from the root directory
         
     # Call the size_checker function for both text and binary directories
     text_smallest_file, text_smallest_size, text_largest_file, text_largest_size = size_checker(text_directory)
     binary_smallest_file, binary_smallest_size, binary_largest_file, binary_largest_size = size_checker(binary_directory)
 
-    # Print the results of the script
+    # Print the results of the script, using our variables we've been tracking. When needed, iterate over the respective lists / directories. 
     print("")
     print("-------------------------------------")
     print("")
@@ -328,7 +325,7 @@ if __name__ == "__main__": # This function runs when the script is run within th
     with open(text_smallest_file, 'r') as file:
         print(file.read())
     print("-------------------------------------")
-    print("Number of invalid references: " + str(invalid_references))
+    print("Number of invalid references (including errored files and directories): " + str(invalid_references))
     print("-------------------------------------")
     print("Errored Files:")
     for file_name, error_msg in errored_files.items():
